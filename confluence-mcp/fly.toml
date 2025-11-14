@@ -1,0 +1,46 @@
+# fly.toml app configuration file generated for confluence-mcp
+app = "confluence-mcp-chrism"
+primary_region = "iad"
+
+[build]
+
+[env]
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/health"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[[mounts]]
+  source = "confluence_mcp_data"
+  destination = "/data"
+
+[processes]
+  app = "npm start"
+
+# Chrome/Puppeteer configuration for Mermaid rendering
+[deploy]
+  strategy = "immediate"
+
+# Environment variables for Confluence configuration
+# These should be set via `fly secrets set` command:
+# fly secrets set CONFLUENCE_BASE_URL=https://your-domain.atlassian.net
+# fly secrets set CONFLUENCE_USERNAME=your-email@domain.com  
+# fly secrets set CONFLUENCE_API_TOKEN=your-api-token
+# fly secrets set MCP_API_KEY=your-mcp-api-key

@@ -1,0 +1,24 @@
+confluence-mcp/
+├── src/
+│   ├── index.ts                 # Main entry point
+│   ├── server.ts                # MCP server implementation
+│   ├── tools/                   # MCP tool implementations
+│   │   ├── index.ts             # Tool exports
+│   │   ├── list-spaces.ts       # confluence_list_spaces
+│   │   ├── list-pages.ts        # confluence_list_pages
+│   │   ├── create-page.ts       # confluence_create_page
+│   │   ├── update-page.ts       # confluence_update_page
+│   │   └── delete-page.ts       # confluence_delete_page
+│   ├── services/
+│   │   ├── confluence-client.ts # Confluence API client
+│   │   ├── markdown-converter.ts # MD to Confluence converter
+│   │   └── mermaid-renderer.ts  # Mermaid diagram renderer
+│   ├── utils/
+│   │   ├── cache.ts             # Local cache for MD-to-page mapping
+│   │   └── config.ts            # Configuration management
+│   └── types/
+│       └── index.ts             # Type definitions
+├── package.json
+├── tsconfig.json
+├── fly.toml                     # Fly.io configuration
+└── .env.example                 # Example environment variables
