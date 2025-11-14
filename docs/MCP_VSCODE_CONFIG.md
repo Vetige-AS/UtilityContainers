@@ -1,12 +1,16 @@
 # VS Code MCP Server Configuration Endpoint
 
-The Confluence MCP server provides a `/mcp/vscode` endpoint that generates VS Code MCP server configuration automatically.
+The MCP servers (Confluence and Pandoc) provide `/mcp/vscode` endpoints that generate VS Code MCP server configuration automatically.
 
-## Endpoint
+## Available Endpoints
 
-**URL**: `GET /mcp/vscode`
+### Confluence MCP
+**URL**: `GET http://localhost:3001/mcp/vscode`
 
-**Query Parameters**:
+### Pandoc MCP
+**URL**: `GET http://localhost:3002/mcp/vscode`
+
+**Query Parameters** (both endpoints):
 - `devcontainer` (boolean): Set to `true` for devcontainer configuration
 - `project` (string): Project name for multi-project setups
 
@@ -19,28 +23,37 @@ The Confluence MCP server provides a `/mcp/vscode` endpoint that generates VS Co
 ### For Host Machine (localhost)
 
 ```bash
-# Fetch configuration
-curl http://localhost:3001/mcp/vscode > mcp-config-guide.md
+# Fetch Confluence MCP configuration
+curl http://localhost:3001/mcp/vscode > confluence-mcp-config.md
+
+# Fetch Pandoc MCP configuration
+curl http://localhost:3002/mcp/vscode > pandoc-mcp-config.md
 
 # Or get JSON config directly
-curl -H "Accept: application/json" http://localhost:3001/mcp/vscode > mcp-config.json
+curl -H "Accept: application/json" http://localhost:3001/mcp/vscode > confluence-mcp-config.json
+curl -H "Accept: application/json" http://localhost:3002/mcp/vscode > pandoc-mcp-config.json
 ```
 
 ### For Devcontainer
 
 ```bash
-# Fetch devcontainer-specific configuration
-curl http://localhost:3001/mcp/vscode?devcontainer=true > mcp-config-guide.md
+# Fetch devcontainer-specific configurations
+curl http://localhost:3001/mcp/vscode?devcontainer=true > confluence-mcp-config.md
+curl http://localhost:3002/mcp/vscode?devcontainer=true > pandoc-mcp-config.md
 ```
 
 ### For Multi-Project Setup
 
 ```bash
-# Project A (port 3001)
-curl http://localhost:3001/mcp/vscode?project=project-a > .vscode/mcp-project-a.md
+# Confluence MCP for Project A (port 3001)
+curl http://localhost:3001/mcp/vscode?project=project-a > .vscode/mcp-confluence-a.md
 
-# Project B (port 3002)
-curl http://localhost:3002/mcp/vscode?project=project-b > .vscode/mcp-project-b.md
+# Pandoc MCP for Project A (port 3002)
+curl http://localhost:3002/mcp/vscode?project=project-a > .vscode/mcp-pandoc-a.md
+
+# Project B uses different ports
+curl http://localhost:3003/mcp/vscode?project=project-b > .vscode/mcp-confluence-b.md
+curl http://localhost:3004/mcp/vscode?project=project-b > .vscode/mcp-pandoc-b.md
 ```
 
 ## Response Structure (JSON)
@@ -102,6 +115,16 @@ Add the `mcpServers` configuration to your VS Code settings:
           "x-mcp-api-key": "${MCP_API_KEY}"
         },
         "description": "Confluence MCP (localhost)"
+      },
+      "pandoc": {
+        "url": "http://localhost:3002/mcp",
+        "transport": {
+          "type": "sse"
+        },
+        "headers": {
+          "x-mcp-api-key": "${MCP_API_KEY}"
+        },
+        "description": "Pandoc MCP (localhost)"
       }
     }
   }

@@ -1,16 +1,15 @@
 # Use Node.js 20 LTS (Debian-based for Pandoc support)
 FROM node:20-slim
 
-# Install Pandoc and basic dependencies
-# Note: For PDF output, you'll need LaTeX. Uncomment the texlive lines below.
+# Install Pandoc with full LaTeX support for PDF conversion
 RUN apt-get update && apt-get install -y \
     pandoc \
+    texlive-latex-base \
+    texlive-fonts-recommended \
+    texlive-latex-extra \
+    texlive-xetex \
     wget \
     ca-certificates \
-    # Uncomment for PDF support (adds ~500MB):
-    # texlive-latex-base \
-    # texlive-fonts-recommended \
-    # texlive-latex-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

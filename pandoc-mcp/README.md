@@ -133,10 +133,31 @@ The server will be available at `http://localhost:3002`
 
 ## Docker Usage
 
+### Dockerfile Options
+
+This container comes with two Dockerfile options:
+
+1. **Dockerfile** (default, ~300MB)
+   - Includes Pandoc without LaTeX
+   - Supports most conversions (HTML, DOCX, Markdown, etc.)
+   - Does NOT support PDF output
+   - Quick to build (~2-3 minutes)
+
+2. **Dockerfile.full** (~800MB)
+   - Includes Pandoc with full LaTeX support
+   - Supports all conversions including PDF
+   - Longer build time (~5-10 minutes)
+
 ### Build the Image
 
+**Standard build (no PDF support):**
 ```bash
 docker build -t pandoc-mcp .
+```
+
+**Full build (with PDF support):**
+```bash
+docker build -f Dockerfile.full -t pandoc-mcp .
 ```
 
 ### Run the Container
@@ -153,6 +174,14 @@ docker run -d \
 ### Using Docker Compose
 
 See the main repository's `docker-compose.yml` for integration with other services.
+
+To use the full version with PDF support, update docker-compose.yml:
+```yaml
+pandoc-mcp:
+  build:
+    context: ./pandoc-mcp
+    dockerfile: Dockerfile.full  # Use full version
+```
 
 ## Development
 
