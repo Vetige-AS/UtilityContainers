@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { PandocConversionOptions, ConversionResult, PandocServiceConfig } from '../types';
 import * as fs from 'fs/promises';
@@ -14,6 +14,18 @@ export class PandocService {
   }
 
   /**
+   * Validate path is within workspace directory
+   */
+  private validatePath(filePath: string): void {
+    const resolved = path.resolve(filePath);
+    const workspace = path.resolve(this.config.workspaceDir);
+    
+    if (!resolved.startsWith(workspace)) {
+      throw new Error('Path traversal detected: Access denied outside workspace directory');
+    }
+  }
+
+  /**
    * Convert document using Pandoc
    */
   async convert(
@@ -23,21 +35,30 @@ export class PandocService {
     try {
       const args = this.buildPandocArgs(options);
       
-      // Build the complete command
-      const command = `echo ${this.escapeShellArg(input)} | pandoc ${args.join(' ')}`;
+      // Use spawn for better security instead of shell execution
+      const pandocProcess = spawn('pandoc', args);
       
-      console.log('Executing Pandoc command:', command);
+      let stdout = '';
+      let stderr = '';
       
-      const { stdout, stderr } = await execAsync(command, {
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-        env: {
-          ...process.env,
-          PANDOC_DATA_DIR: this.config.dataDir
-        }
+      // Write input to stdin
+      pandocProcess.stdin.write(input);
+      pandocProcess.stdin.end();
+      
+      pandocProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      pandocProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      const exitCode = await new Promise<number>((resolve) => {
+        pandocProcess.on('close', resolve);
       });
 
-      if (stderr && !stdout) {
-        throw new Error(stderr);
+      if (exitCode !== 0 || (stderr && !stdout)) {
+        throw new Error(stderr || 'Pandoc conversion failed');
       }
 
       return {
@@ -72,6 +93,10 @@ export class PandocService {
         ? outputPath
         : path.join(this.config.workspaceDir, outputPath);
 
+      // Validate paths are within workspace (prevent path traversal)
+      this.validatePath(resolvedInputPath);
+      this.validatePath(resolvedOutputPath);
+
       // Verify input file exists
       await fs.access(resolvedInputPath);
 
@@ -80,19 +105,30 @@ export class PandocService {
       await fs.mkdir(outputDir, { recursive: true });
 
       const args = this.buildPandocArgs(options);
-      args.push(`-o "${resolvedOutputPath}"`);
-      args.push(`"${resolvedInputPath}"`);
+      args.push('-o', resolvedOutputPath);
+      args.push(resolvedInputPath);
 
-      const command = `pandoc ${args.join(' ')}`;
+      console.log('Executing Pandoc file conversion with args:', args);
       
-      console.log('Executing Pandoc file conversion:', command);
-      
-      const { stderr } = await execAsync(command, {
+      const pandocProcess = spawn('pandoc', args, {
         env: {
           ...process.env,
           PANDOC_DATA_DIR: this.config.dataDir
         }
       });
+      
+      let stderr = '';
+      pandocProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      const exitCode = await new Promise<number>((resolve) => {
+        pandocProcess.on('close', resolve);
+      });
+
+      if (exitCode !== 0) {
+        throw new Error(`Pandoc failed: ${stderr}`);
+      }
 
       if (stderr) {
         console.warn('Pandoc warnings:', stderr);
@@ -157,17 +193,17 @@ export class PandocService {
   private buildPandocArgs(options: PandocConversionOptions): string[] {
     const args: string[] = [];
 
-    // Input/output formats
+    // Input/output formats (sanitized - no user input in format names)
     if (options.inputFormat) {
-      args.push(`-f ${options.inputFormat}`);
+      args.push('-f', this.sanitizeFormat(options.inputFormat));
     } else {
-      args.push(`-f ${this.config.defaultInputFormat}`);
+      args.push('-f', this.config.defaultInputFormat);
     }
 
     if (options.outputFormat) {
-      args.push(`-t ${options.outputFormat}`);
+      args.push('-t', this.sanitizeFormat(options.outputFormat));
     } else {
-      args.push(`-t ${this.config.defaultOutputFormat}`);
+      args.push('-t', this.config.defaultOutputFormat);
     }
 
     // Standalone document
@@ -179,7 +215,10 @@ export class PandocService {
     if (options.toc) {
       args.push('--toc');
       if (options.tocDepth) {
-        args.push(`--toc-depth=${options.tocDepth}`);
+        const depth = parseInt(String(options.tocDepth), 10);
+        if (!isNaN(depth) && depth >= 1 && depth <= 6) {
+          args.push(`--toc-depth=${depth}`);
+        }
       }
     }
 
@@ -190,42 +229,66 @@ export class PandocService {
 
     // Syntax highlighting
     if (options.highlightStyle) {
-      args.push(`--highlight-style=${options.highlightStyle}`);
+      args.push(`--highlight-style=${this.sanitizeIdentifier(options.highlightStyle)}`);
     }
 
-    // Template
+    // Template - validate path
     if (options.template) {
-      args.push(`--template="${options.template}"`);
+      const templatePath = path.resolve(this.config.workspaceDir, options.template);
+      this.validatePath(templatePath);
+      args.push('--template', templatePath);
     }
 
-    // Variables
+    // Variables - sanitize keys and values
     if (options.variables) {
       Object.entries(options.variables).forEach(([key, value]) => {
-        args.push(`-V ${key}="${value}"`);
+        const sanitizedKey = this.sanitizeIdentifier(key);
+        const sanitizedValue = String(value).replace(/["']/g, ''); // Remove quotes
+        args.push('-V', `${sanitizedKey}=${sanitizedValue}`);
       });
     }
 
-    // Metadata
+    // Metadata - sanitize keys and values
     if (options.metadata) {
       Object.entries(options.metadata).forEach(([key, value]) => {
+        const sanitizedKey = this.sanitizeIdentifier(key);
         const jsonValue = typeof value === 'string' ? value : JSON.stringify(value);
-        args.push(`-M ${key}="${jsonValue}"`);
+        const sanitizedValue = jsonValue.replace(/["']/g, ''); // Remove quotes
+        args.push('-M', `${sanitizedKey}=${sanitizedValue}`);
       });
     }
 
-    // Extra arguments
+    // Extra arguments - DO NOT include user-provided extra args for security
+    // If needed, implement a whitelist of safe arguments
     if (options.extraArgs && options.extraArgs.length > 0) {
-      args.push(...options.extraArgs);
+      console.warn('Extra arguments are disabled for security reasons');
     }
 
     return args;
   }
 
   /**
-   * Escape shell argument
+   * Sanitize format name to prevent injection
    */
-  private escapeShellArg(arg: string): string {
-    return `'${arg.replace(/'/g, "'\\''")}'`;
+  private sanitizeFormat(format: string): string {
+    // Allow only alphanumeric, dash, underscore, and plus
+    const sanitized = format.replace(/[^a-zA-Z0-9_+-]/g, '');
+    if (sanitized !== format) {
+      throw new Error(`Invalid format name: ${format}`);
+    }
+    return sanitized;
+  }
+
+  /**
+   * Sanitize identifier (for variables, metadata keys, etc.)
+   */
+  private sanitizeIdentifier(identifier: string): string {
+    // Allow only alphanumeric, dash, and underscore
+    const sanitized = identifier.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (sanitized !== identifier) {
+      throw new Error(`Invalid identifier: ${identifier}`);
+    }
+    return sanitized;
   }
 
   /**

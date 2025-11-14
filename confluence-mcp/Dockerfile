@@ -25,6 +25,15 @@ RUN npm prune --production && npm cache clean --force
 # Create data directory for volume mount
 RUN mkdir -p /data
 
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Set ownership of app files
+RUN chown -R nodejs:nodejs /app /data
+
+# Switch to non-root user
+USER nodejs
+
 # Expose port (overridable via PORT env var, defaults to 3001)
 EXPOSE 3001
 
