@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   diagram-converter:
+    image: ${DIAGRAM_CONVERTER_IMAGE:-diagram-converter:latest}
     build:
       context: ./diagram-converter
       dockerfile: Dockerfile
@@ -23,6 +24,7 @@ services:
       - NODE_ENV=production
 
   confluence-mcp:
+    image: ${CONFLUENCE_MCP_IMAGE:-confluence-mcp:latest}
     build:
       context: ./confluence-mcp
       dockerfile: Dockerfile

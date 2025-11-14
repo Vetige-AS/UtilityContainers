@@ -8,14 +8,22 @@ Get diagram conversion and Confluence publishing working in your project in 5 mi
 - Internet connection
 - That's it!
 
-## Step 1: Pull the Images (1 minute)
+## Step 1: Get the Repository and Configure
 
 ```bash
-docker pull manateeit/diagram-converter:latest
-docker pull manateeit/confluence-mcp:latest
+# Clone or copy this repository
+cd docker-diagram-services
+
+# The .env file already has an MCP_API_KEY generated
+# You can use it as-is or generate a new one:
+# echo "MCP_API_KEY=$(openssl rand -hex 32)" >> .env
 ```
 
-> **Don't have the images yet?** Clone this repo and run `docker compose build` to build them locally.
+**Optional**: Edit `.env` to use your own Docker Hub images:
+```bash
+DIAGRAM_CONVERTER_IMAGE=sandhaaland/diagram-converter:latest
+CONFLUENCE_MCP_IMAGE=sandhaaland/confluence-mcp:latest
+```
 
 ## Step 2: Create Network (10 seconds)
 
@@ -25,30 +33,47 @@ docker network create dev-network
 
 ## Step 3: Start Services (30 seconds)
 
+**Option A: Using docker-compose (recommended)**
 ```bash
-# Start diagram converter
+# This uses the MCP_API_KEY from .env automatically
+docker compose up -d
+```
+
+**Option B: Pull and run manually**
+```bash
+# Pull images
+docker pull sandhaaland/diagram-converter:latest
+docker pull sandhaaland/confluence-mcp:latest
+
+# Start diagram converter (no API key needed)
 docker run -d \
   --name diagram-converter \
   --network dev-network \
   -p 3000:3000 \
   --restart unless-stopped \
-  manateeit/diagram-converter:latest
+  sandhaaland/diagram-converter:latest
 
-# Generate API key
-export MCP_API_KEY=$(openssl rand -hex 32)
-echo "MCP_API_KEY=$MCP_API_KEY"
-
-# Start Confluence MCP (save the API key!)
+# Start Confluence MCP (needs API key from .env)
 docker run -d \
   --name confluence-mcp \
   --network dev-network \
   -p 3001:3001 \
-  -e MCP_API_KEY="$MCP_API_KEY" \
+  -e MCP_API_KEY="90214cca4e92a32e3edce91bea4e242172e2003afd95853d4d670ff5e270d3a5" \
   --restart unless-stopped \
-  manateeit/confluence-mcp:latest
+  sandhaaland/confluence-mcp:latest
 ```
 
+> **Note**: The MCP_API_KEY is used to authenticate VS Code when connecting to the Confluence MCP server. It's already set in the `.env` file.
+
 ## Step 4: Configure VS Code (2 minutes)
+
+### Get Your MCP_API_KEY
+
+```bash
+# View your API key from .env
+cat .env | grep MCP_API_KEY
+# Output: MCP_API_KEY=90214cca4e92a32e3edce91bea4e242172e2003afd95853d4d670ff5e270d3a5
+```
 
 ### Option A: Automatic (Recommended)
 
@@ -74,7 +99,7 @@ Add to `.vscode/settings.json`:
       "confluence": {
         "url": "http://localhost:3001/mcp",
         "transport": { "type": "sse" },
-        "headers": { "x-mcp-api-key": "YOUR-API-KEY-HERE" },
+        "headers": { "x-mcp-api-key": "90214cca4e92a32e3edce91bea4e242172e2003afd95853d4d670ff5e270d3a5" },
         "description": "Confluence MCP"
       }
     }
@@ -82,7 +107,7 @@ Add to `.vscode/settings.json`:
 }
 ```
 
-Replace `YOUR-API-KEY-HERE` with the MCP_API_KEY from Step 3.
+> **Important**: Replace the API key above with your actual key from `.env` file.
 
 ## Step 5: Verify (1 minute)
 
@@ -135,21 +160,43 @@ curl -X POST http://localhost:3000/convert/svg2png \
 Want to use different Confluence instances per project?
 
 ```bash
-# Project-specific containers
+# Generate a unique API key for this project
+PROJECT_API_KEY=$(openssl rand -hex 32)
+
+# Start project-specific container
 docker run -d \
   --name myproject-confluence-mcp \
   --network dev-network \
   -p 3002:3001 \
-  -e MCP_API_KEY="$(openssl rand -hex 32)" \
+  -e MCP_API_KEY="$PROJECT_API_KEY" \
   -e CONFLUENCE_BASE_URL="https://mycompany.atlassian.net" \
   -e CONFLUENCE_USERNAME="your-email@company.com" \
   -e CONFLUENCE_API_TOKEN="your-api-token" \
-  manateeit/confluence-mcp:latest
+  sandhaaland/confluence-mcp:latest
+
+# Save the API key for VS Code configuration
+echo "Project MCP_API_KEY: $PROJECT_API_KEY"
 ```
 
 Then fetch project-specific configs:
 ```bash
 curl http://localhost:3002/mcp/vscode?project=myproject > .vscode/mcp-config.md
+```
+
+Add to VS Code settings with the generated API key:
+```json
+{
+  "mcp": {
+    "servers": {
+      "confluence-myproject": {
+        "url": "http://localhost:3002/mcp",
+        "transport": { "type": "sse" },
+        "headers": { "x-mcp-api-key": "YOUR-PROJECT-API-KEY" },
+        "description": "Confluence MCP (My Project)"
+      }
+    }
+  }
+}
 ```
 
 ## DevContainer Setup
