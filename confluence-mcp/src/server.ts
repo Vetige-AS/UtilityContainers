@@ -633,28 +633,26 @@ export function startServer(port: number): void {
   app.get('/mcp', authenticateRequest, async (req, res) => {
     console.log('Received authenticated GET request to /mcp (establishing SSE stream)');
     try {
-      // Generate a secure session ID
-      const secureSessionId = generateSecureSessionId();
-
       // Create a new SSE transport for the client
+      // The transport automatically generates its own secure session ID
       const transport = new SSEServerTransport('/messages', res);
 
-      // Override the session ID with our secure one
-      (transport as any).sessionId = secureSessionId;
+      // Get the session ID from the transport (it's a read-only property)
+      const sessionId = transport.sessionId;
 
       // Store the transport by session ID
-      transports[secureSessionId] = transport;
+      transports[sessionId] = transport;
 
       // Set up onclose handler to clean up transport when closed
       transport.onclose = () => {
-        console.log(`SSE transport closed for session ${secureSessionId}`);
-        delete transports[secureSessionId];
+        console.log(`SSE transport closed for session ${sessionId}`);
+        delete transports[sessionId];
       };
 
       // Connect the transport to the MCP server
       const server = getServer();
       await server.connect(transport);
-      console.log(`Established SSE stream with session ID: ${secureSessionId}`);
+      console.log(`Established SSE stream with session ID: ${sessionId}`);
     } catch (error) {
       console.error('Error establishing SSE stream:', error);
       if (!res.headersSent) {
