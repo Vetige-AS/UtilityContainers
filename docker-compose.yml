@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  diagram-converter:
+    build:
+      context: ./diagram-converter
+      dockerfile: Dockerfile
+    container_name: diagram-converter
+    ports:
+      - "${DIAGRAM_CONVERTER_PORT:-3000}:3000"
+    volumes:
+      - ./workspace:/workspace
+    networks:
+      - dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - NODE_ENV=production
+
+  confluence-mcp:
+    build:
+      context: ./confluence-mcp
+      dockerfile: Dockerfile
+    container_name: confluence-mcp
+    ports:
+      - "${CONFLUENCE_MCP_PORT:-3001}:3001"
+    volumes:
+      - ./workspace:/workspace
+      - mcp-cache:/app/.cache
+    env_file:
+      - .env
+    networks:
+      - dev-network
+    restart: unless-stopped
+    depends_on:
+      diagram-converter:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+
+networks:
+  dev-network:
+    external: true
+    name: dev-network
+
+volumes:
+  mcp-cache:
+    driver: local

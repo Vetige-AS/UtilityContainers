@@ -1,0 +1,42 @@
+# Environment variables
+.env
+*.env
+!.env.example
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Docker volumes
+.docker/
+
+# Generated files
+*.png
+workspace/docs/*_processed.md
+
+# Confluence MCP cloned repo
+confluence-mcp/.git/
+confluence-mcp/node_modules/
+confluence-mcp/dist/
+confluence-mcp/.cache/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp

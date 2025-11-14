@@ -1,0 +1,350 @@
+# Docker Diagram Services for Confluence Publishing
+
+A complete containerized solution for converting Markdown diagrams (SVG and Mermaid) to PNG and publishing to Confluence.
+
+## 📋 What This Provides
+
+- **Diagram Converter Service**: HTTP API for converting SVG and Mermaid diagrams to PNG (Node.js 20)
+- **Confluence MCP Server**: Model Context Protocol server for AI-powered Confluence publishing (Node.js 20)
+- **Generic Mode**: Use with multiple Confluence instances without hardcoded credentials
+- **Docker Network**: Shared `dev-network` for cross-project container communication
+- **Multi-Project Support**: Run multiple instances with unique container names
+- **Helper Scripts**: Utilities for testing and conversion
+- **VS Code Integration**: Ready for devcontainer usage with custom agents
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- WSL2 Ubuntu 24.04
+- Docker CLI installed (not Docker Desktop)
+- Git (for cloning confluence-mcp)
+- curl and jq (for testing)
+
+### Installation Steps
+
+```bash
+# 1. Extract this project to your home directory
+cd ~
+unzip docker-diagram-services.zip
+cd docker-diagram-services
+
+# 2. Make scripts executable
+chmod +x setup.sh
+chmod +x scripts/*.sh
+
+# 3. Run the setup script
+./setup.sh
+
+# 4. Follow the prompts to configure Confluence credentials
+```
+
+## 📁 Project Structure
+
+```
+docker-diagram-services/
+├── README.md                          # This file
+├── setup.sh                           # Automated setup script
+├── docker-compose.yml                 # Docker Compose configuration
+├── .env.example                       # Environment variables template
+│
+├── diagram-converter/                 # Diagram conversion service
+│   ├── Dockerfile
+│   ├── package.json
+│   └── server.js
+│
+├── confluence-mcp/                    # Confluence MCP server
+│   ├── Dockerfile.template
+│   └── .env.example
+│
+├── scripts/                           # Helper utilities
+│   ├── test-services.sh              # Test all services
+│   ├── convert-diagram.sh            # Convert single diagram
+│   ├── process-markdown.sh           # Process markdown with diagrams
+│   └── start-services.sh             # Start all services
+│
+├── workspace/                         # Shared workspace
+│   ├── docs/                         # Your markdown files
+│   │   └── example.md
+│   └── diagrams/                     # Your diagram files
+│       ├── test.svg
+│       └── test.mmd
+│
+└── docs/                             # Documentation
+    ├── SETUP.md                      # Detailed setup guide
+    ├── USAGE.md                      # Usage examples
+    └── TROUBLESHOOTING.md            # Common issues
+```
+
+## 📖 Step-by-Step Setup
+
+### Step 1: Verify Docker
+
+```bash
+# Check Docker is installed
+docker --version
+
+# Start Docker if not running
+sudo systemctl start docker
+
+# Add your user to docker group (no sudo needed)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Test
+docker ps
+```
+
+### Step 2: Create Docker Network
+
+```bash
+# Create custom network for service communication
+docker network create dev-network
+
+# Verify
+docker network ls | grep dev-network
+```
+
+### Step 3: Configure Confluence Credentials
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit with your Confluence details
+nano .env
+```
+
+Required values:
+- `CONFLUENCE_BASE_URL`: Your Confluence URL (e.g., https://yourcompany.atlassian.net)
+- `CONFLUENCE_USERNAME`: Your email
+- `CONFLUENCE_API_TOKEN`: Generate at https://id.atlassian.com/manage-profile/security/api-tokens
+
+### Step 4: Build and Start Services
+
+```bash
+# Build all services
+docker-compose build
+
+# Start services in background
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+### Step 5: Test the Services
+
+```bash
+# Run test script
+./scripts/test-services.sh
+
+# Test diagram conversion
+./scripts/convert-diagram.sh svg workspace/diagrams/test.svg workspace/diagrams/test-output.png
+
+# Test Mermaid conversion
+./scripts/convert-diagram.sh mermaid workspace/diagrams/test.mmd workspace/diagrams/test-mermaid-output.png
+```
+
+## 🎯 Usage Examples
+
+### Converting Diagrams via HTTP API
+
+```bash
+# Convert SVG to PNG
+curl -X POST http://localhost:3000/convert/svg2png \
+  -F "file=@workspace/diagrams/architecture.svg" \
+  -o workspace/diagrams/architecture.png
+
+# Convert Mermaid to PNG
+curl -X POST http://localhost:3000/convert/mermaid2png \
+  -H "Content-Type: text/plain" \
+  --data-binary "@workspace/diagrams/flow.mmd" \
+  -o workspace/diagrams/flow.png
+```
+
+### Using with AI Agents (MCP)
+
+Configure your AI assistant to use the MCP server:
+
+```json
+{
+  "mcpServers": {
+    "confluence": {
+      "url": "http://localhost:3001/mcp",
+      "transport": "sse"
+    }
+  }
+}
+```
+
+Then tell your AI: "Convert all diagrams in my markdown file and publish to Confluence"
+
+### Using in VS Code Devcontainers
+
+Add to your `.devcontainer/devcontainer.json`:
+
+```json
+{
+  "runArgs": ["--network=dev-network"],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "diagramConverter.url": "http://diagram-converter:3000"
+      }
+    }
+  }
+}
+```
+
+## 🛠️ Management Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose stop
+
+# Restart services
+docker-compose restart
+
+# View logs
+docker-compose logs -f
+
+# Rebuild after changes
+docker-compose build
+docker-compose up -d
+
+# Stop and remove everything
+docker-compose down
+
+# View resource usage
+docker stats
+```
+
+## 🔍 Health Checks
+
+```bash
+# Check diagram converter
+curl http://localhost:3000/health
+
+# Check Confluence MCP (if available)
+curl http://localhost:3001/health
+```
+
+## 📚 Documentation
+
+- [Detailed Setup Guide](docs/SETUP.md)
+- [Usage Examples](docs/USAGE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+## 🐛 Common Issues
+
+**Containers can't communicate:**
+```bash
+docker network inspect dev-network
+docker-compose restart
+```
+
+**Port already in use:**
+```bash
+sudo lsof -i :3000
+# Kill the process or change port in docker-compose.yml
+```
+
+**Permission denied:**
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+## 🔄 Auto-Start on WSL Boot
+
+```bash
+# Add to ~/.bashrc
+echo 'cd ~/docker-diagram-services && ./scripts/start-services.sh' >> ~/.bashrc
+```
+
+## 🐳 Docker Hub Deployment
+
+Push images to Docker Hub for faster deployment across projects:
+
+```bash
+# Login to Docker Hub
+docker login
+
+# Tag images
+docker tag docker-diagram-services-diagram-converter:latest yourusername/diagram-converter:latest
+docker tag docker-diagram-services-confluence-mcp:latest yourusername/confluence-mcp:latest
+
+# Push to registry
+docker push yourusername/diagram-converter:latest
+docker push yourusername/confluence-mcp:latest
+```
+
+**Benefits:**
+- Skip 10+ minute builds in new projects
+- Consistent images across team/machines
+- Pull updates with `docker compose pull`
+
+## 🏗️ Multi-Project Setup
+
+Run the same services across different projects with isolated configurations:
+
+**Project A (project-a/.env):**
+```bash
+PROJECT_NAME=project-a
+CONFLUENCE_BASE_URL=https://company-a.atlassian.net
+CONFLUENCE_MCP_PORT=3001
+```
+
+**Project B (project-b/.env):**
+```bash
+PROJECT_NAME=project-b
+CONFLUENCE_BASE_URL=https://company-b.atlassian.net
+CONFLUENCE_MCP_PORT=3002
+```
+
+**Each uses unique container names:**
+- `project-a-confluence-mcp` on port 3001
+- `project-b-confluence-mcp` on port 3002
+
+Containers communicate via `dev-network` using container names:
+```bash
+# From Project A's devcontainer
+curl http://project-a-confluence-mcp:3001/health
+
+# From Project B's devcontainer  
+curl http://project-b-confluence-mcp:3001/health
+```
+
+## 📦 Accessing from Windows
+
+Your workspace is accessible from Windows at:
+```
+\\wsl$\Ubuntu-24.04\home\yourusername\docker-diagram-services\workspace
+```
+
+Services are accessible at:
+- http://localhost:3000 (Diagram Converter)
+- http://localhost:3001 (Confluence MCP)
+
+## 🤝 Contributing
+
+Feel free to modify and extend these services for your needs!
+
+## 📄 License
+
+MIT License - Feel free to use and modify.
+
+## 🆘 Support
+
+Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) or review container logs:
+```bash
+docker-compose logs diagram-converter
+docker-compose logs confluence-mcp
+```

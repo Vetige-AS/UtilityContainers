@@ -1,0 +1,19 @@
+graph TD
+    A[Start] --> B{Is Data Valid?}
+    B -->|Yes| C[Process Data]
+    B -->|No| D[Return Error]
+    C --> E[Save to Database]
+    E --> F{Save Successful?}
+    F -->|Yes| G[Return Success]
+    F -->|No| H[Rollback]
+    H --> D
+    D --> I[End]
+    G --> I
+    
+    style A fill:#0d6efd,stroke:#0a58ca,color:#fff
+    style B fill:#ffc107,stroke:#ffb300,color:#212529
+    style C fill:#198754,stroke:#146c43,color:#fff
+    style D fill:#dc3545,stroke:#b02a37,color:#fff
+    style E fill:#0dcaf0,stroke:#0aa2c0,color:#212529
+    style G fill:#198754,stroke:#146c43,color:#fff
+    style I fill:#6c757d,stroke:#5a6268,color:#fff
