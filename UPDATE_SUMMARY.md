@@ -1,0 +1,323 @@
+# UtilityContainers DevContainer Update Summary
+
+## Overview
+
+The UtilityContainers repository has been updated to fully support **docker-outside-of-docker** workflows with VS Code Dev Containers, solving Docker-in-Docker problems like duplicate image downloads, lost containers on rebuild, and resource waste.
+
+## What Changed
+
+### 📄 New Files Created
+
+1. **`docs/DEVCONTAINER_INTEGRATION.md`** (400+ lines)
+   - Complete architecture guide
+   - Setup instructions (automated & manual)
+   - Network configuration deep-dive
+   - Environment variable patterns
+   - Troubleshooting guide with solutions
+   - Security considerations
+   - Migration guide from Docker-in-Docker
+
+2. **`scripts/setup-for-devcontainer.sh`** (165 lines)
+   - Generates all devcontainer configuration files
+   - Creates `.devcontainer/devcontainer.json` with correct settings
+   - Creates `.devcontainer/start-utility-containers.sh` (runs on host)
+   - Creates `.devcontainer/setup-utility-containers.sh` (runs in devcontainer)
+   - Updates `.gitignore` automatically
+   - Provides clear next-step instructions
+
+3. **`scripts/migrate-to-host-docker.sh`** (200+ lines)
+   - Interactive migration tool
+   - Stops old Docker-in-Docker containers
+   - Creates `dev-network` on host
+   - Starts containers on host
+   - Generates `.env` with API key
+   - Updates `.gitignore`
+   - Provides devcontainer.json update instructions
+   - Includes verification checks
+
+4. **`CHANGELOG.md`** (150+ lines)
+   - Documents all changes in this update
+   - Explains benefits and migration path
+   - Lists technical details
+   - Testing checklist
+
+### 📝 Updated Files
+
+1. **`QUICKSTART.new-project.md`**
+   - **Added**: Comprehensive "DevContainer Setup" section
+     - **Approach A: Docker-Outside-of-Docker (Recommended)** - Full guide
+     - **Approach B: Docker-in-Docker (Legacy)** - Alternative approach
+   - Moved old devcontainer content to "Legacy" section
+   - Added workflow explanations and verification steps
+
+2. **`README.md`**
+   - **Added**: "For DevContainer Projects" section
+   - Quick start instructions
+   - Benefits explanation
+   - Network connectivity reference
+   - Environment variable setup
+   - Links to full documentation
+
+3. **`docs/QUICK_REFERENCE.md`**
+   - **Restructured**: Now shows both approaches clearly
+   - Added troubleshooting section
+   - Added migration guide reference
+   - Updated all examples to use container names
+   - Added verification steps
+
+4. **`.env.example`**
+   - **Enhanced**: Added comprehensive comments
+   - Organized into sections (MCP, Confluence, Ports, DevContainer)
+   - Added usage notes for devcontainer workflows
+   - Security best practices
+   - Clear generation instructions
+
+## Key Technical Changes
+
+### Architecture Pattern
+
+**Old (Docker-in-Docker):**
+```
+Host → DevContainer → Docker Daemon → Utility Containers
+       (nested Docker, duplicated images)
+```
+
+**New (Docker-Outside-of-Docker):**
+```
+Host → Docker Daemon → DevContainer (shares socket)
+                    └→ Utility Containers
+       (shared Docker, single image set)
+```
+
+### Network Configuration
+
+- **Network Name**: `dev-network` (external Docker bridge network)
+- **DevContainer Joins**: Via `"runArgs": ["--network=dev-network"]`
+- **Container DNS**: Containers resolve by name (e.g., `http://diagram-converter:3000`)
+- **Host Access**: Via `localhost` (e.g., `http://localhost:3000`)
+
+### Environment Variables
+
+**Loading Pattern:**
+```json
+// devcontainer.json
+"containerEnv": {
+  "MCP_API_KEY": "${localEnv:MCP_API_KEY}"
+}
+```
+
+**Usage in VS Code:**
+```json
+// settings.json
+"headers": { "x-mcp-api-key": "${env:MCP_API_KEY}" }
+```
+
+## User Workflow
+
+### For New Users
+
+```bash
+# 1. Generate devcontainer configuration
+/path/to/UtilityContainers/scripts/setup-for-devcontainer.sh
+
+# 2. Start containers on host
+bash .devcontainer/start-utility-containers.sh
+
+# 3. Open in VS Code
+code .
+
+# 4. Click "Reopen in Container"
+# Done! Containers are accessible inside devcontainer
+```
+
+### For Existing Users (Migration)
+
+```bash
+# 1. Run migration script
+./scripts/migrate-to-host-docker.sh
+
+# 2. Update devcontainer.json (follow script instructions)
+
+# 3. Rebuild devcontainer
+# Ctrl+Shift+P → "Dev Containers: Rebuild Container"
+```
+
+## Benefits
+
+| Aspect | Docker-in-Docker | Docker-Outside-of-Docker |
+|--------|------------------|---------------------------|
+| **Image Storage** | Duplicated per devcontainer | Single copy on host |
+| **Disk Usage** | ~2-3GB per devcontainer | ~1GB total |
+| **Container Persistence** | Lost on rebuild | Survive rebuilds |
+| **Startup Time** | Pull images every rebuild | Instant (containers already running) |
+| **Complexity** | Nested Docker daemon | Simple socket mount |
+| **Cross-Project Sharing** | No | Yes (via dev-network) |
+
+## Files Reference
+
+### Generated by setup-for-devcontainer.sh
+
+```
+.devcontainer/
+├── devcontainer.json                    # DevContainer configuration
+├── start-utility-containers.sh          # Run on HOST before opening
+└── setup-utility-containers.sh          # Runs INSIDE devcontainer
+
+.env                                     # Generated if doesn't exist
+.gitignore                               # Updated to ignore .env
+```
+
+### devcontainer.json Template
+
+```json
+{
+  "name": "My Project with UtilityContainers",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "enableNonRootDocker": true
+    }
+  },
+  
+  "runArgs": ["--network=dev-network"],
+  "forwardPorts": [3000, 3001],
+  "postCreateCommand": "bash .devcontainer/setup-utility-containers.sh",
+  
+  "containerEnv": {
+    "MCP_API_KEY": "${localEnv:MCP_API_KEY}"
+  },
+  
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "mcp": {
+          "servers": {
+            "confluence": {
+              "url": "http://confluence-mcp:3001/mcp",
+              "transport": { "type": "sse" },
+              "headers": { "x-mcp-api-key": "${env:MCP_API_KEY}" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Testing Checklist
+
+Verify these work after setup:
+
+```bash
+# Inside devcontainer
+
+# 1. Docker connectivity (should see host containers)
+docker ps | grep -E 'diagram-converter|confluence-mcp'
+
+# 2. Network connectivity
+curl http://diagram-converter:3000/health
+curl http://confluence-mcp:3001/health
+
+# 3. Agent files exist
+ls -la .vscode/*.agent.md
+
+# 4. Environment variables loaded
+echo $MCP_API_KEY
+
+# 5. MCP server accessible
+# (Use VS Code MCP tools)
+```
+
+## Documentation Structure
+
+```
+UtilityContainers/
+├── README.md                           # ✏️ Added DevContainer section
+├── QUICKSTART.new-project.md           # ✏️ Added Approach A & B
+├── CHANGELOG.md                        # ✨ New: Version history
+├── UPDATE_SUMMARY.md                   # ✨ New: This file
+├── .env.example                        # ✏️ Enhanced comments
+│
+├── scripts/
+│   ├── setup-for-devcontainer.sh      # ✨ New: Auto-generate config
+│   └── migrate-to-host-docker.sh      # ✨ New: Migration tool
+│
+└── docs/
+    ├── DEVCONTAINER_INTEGRATION.md    # ✨ New: Complete guide
+    └── QUICK_REFERENCE.md             # ✏️ Updated: Two approaches
+```
+
+Legend:
+- ✨ New file
+- ✏️ Updated file
+
+## Troubleshooting Quick Reference
+
+### Container names don't resolve
+```bash
+# Check network
+docker inspect <devcontainer-id> | grep NetworkMode
+# Should show: "dev-network"
+```
+
+### Containers not running
+```bash
+# On host
+docker restart diagram-converter confluence-mcp
+```
+
+### MCP authentication fails
+```bash
+# Verify keys match
+cat .env | grep MCP_API_KEY         # Host
+echo $MCP_API_KEY                   # Devcontainer
+```
+
+## Next Steps for Users
+
+1. **Review Documentation**
+   - Read `docs/DEVCONTAINER_INTEGRATION.md` for deep dive
+   - Check `QUICKSTART.new-project.md` for step-by-step
+
+2. **Try It Out**
+   - Run `scripts/setup-for-devcontainer.sh` in test project
+   - Verify containers work from devcontainer
+
+3. **Migrate Existing Projects** (if applicable)
+   - Run `scripts/migrate-to-host-docker.sh`
+   - Update devcontainer.json
+   - Rebuild devcontainer
+
+4. **Share with Team**
+   - Commit `.devcontainer/` folder to repository
+   - Team members get same setup automatically
+   - Share `.env.example` (not `.env`!)
+
+## Security Notes
+
+- **Docker Socket Access**: Devcontainer has full control over host Docker
+- **API Keys**: Never commit `.env` to git (added to `.gitignore`)
+- **Network Isolation**: Only trusted containers on `dev-network`
+- **Key Generation**: Use `openssl rand -hex 32` for strong keys
+
+## Support Resources
+
+- **Full Guide**: `docs/DEVCONTAINER_INTEGRATION.md`
+- **Quick Start**: `QUICKSTART.new-project.md`
+- **Quick Reference**: `docs/QUICK_REFERENCE.md`
+- **Troubleshooting**: See "Troubleshooting" section in DEVCONTAINER_INTEGRATION.md
+- **Migration**: `scripts/migrate-to-host-docker.sh` with instructions
+
+## Summary
+
+This update makes UtilityContainers **production-ready for devcontainer workflows** by:
+
+✅ Eliminating Docker-in-Docker issues  
+✅ Providing automated setup tools  
+✅ Documenting best practices  
+✅ Supporting migration from old approach  
+✅ Maintaining backward compatibility  
+
+Users can now run utility containers once on the host and access them from all devcontainers, saving time, disk space, and complexity.

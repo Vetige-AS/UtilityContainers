@@ -76,6 +76,94 @@ docker-diagram-services/
     └── TROUBLESHOOTING.md            # Common issues
 ```
 
+## 🐳 For DevContainer Projects
+
+**Recommended:** Run containers on Docker host to avoid Docker-in-Docker duplication.
+
+### Why Docker-Outside-of-Docker?
+
+When using devcontainers, running utility containers on the **host** (instead of inside the devcontainer) provides:
+
+- ✅ **Images downloaded only once** - No duplicate downloads in devcontainer
+- ✅ **Containers persist** - Survive devcontainer rebuilds
+- ✅ **Shared resources** - All devcontainers access same containers
+- ✅ **No overhead** - Avoid nested Docker complexity
+- ✅ **Faster startup** - Devcontainer connects to existing containers
+
+### Quick Start for DevContainers
+
+```bash
+# 1. Generate devcontainer configuration (one-time)
+./scripts/setup-for-devcontainer.sh
+
+# 2. Start containers on host (before opening in VS Code)
+.devcontainer/start-utility-containers.sh
+
+# 3. Open in VS Code
+code .
+
+# 4. Click "Reopen in Container" when prompted
+# Devcontainer will automatically connect to containers!
+```
+
+### What This Does
+
+1. **Creates `.devcontainer/devcontainer.json`** with:
+   - `docker-outside-of-docker` feature (shares host's Docker daemon)
+   - `--network=dev-network` (joins same network as utility containers)
+   - MCP server configuration using container names
+
+2. **Creates `.devcontainer/start-utility-containers.sh`** (runs on host):
+   - Creates `dev-network`
+   - Generates `MCP_API_KEY` in `.env`
+   - Starts `diagram-converter` and `confluence-mcp` containers
+
+3. **Creates `.devcontainer/setup-utility-containers.sh`** (runs inside devcontainer):
+   - Downloads agent definitions using container names
+   - Verifies connectivity to services
+
+### Network Connectivity
+
+**From inside devcontainer**, use container names:
+```bash
+curl http://diagram-converter:3000/health
+curl http://confluence-mcp:3001/health
+```
+
+**From host or other containers**, use `localhost` or container names:
+```bash
+curl http://localhost:3000/health
+curl http://localhost:3001/health
+```
+
+### Environment Variables
+
+The devcontainer loads `MCP_API_KEY` from host's `.env` file:
+
+```json
+"containerEnv": {
+  "MCP_API_KEY": "${localEnv:MCP_API_KEY}"
+}
+```
+
+Then VS Code settings reference it:
+```json
+"headers": { "x-mcp-api-key": "${env:MCP_API_KEY}" }
+```
+
+### Full Documentation
+
+See [docs/DEVCONTAINER_INTEGRATION.md](docs/DEVCONTAINER_INTEGRATION.md) for:
+- Detailed architecture explanation
+- Troubleshooting container name resolution
+- Security considerations
+- Advanced configurations
+- Migration from Docker-in-Docker
+
+Also see [QUICKSTART.new-project.md - DevContainer Setup](QUICKSTART.new-project.md#devcontainer-setup-recommended-docker-outside-of-docker) for complete setup instructions.
+
+---
+
 ## 📖 Step-by-Step Setup
 
 ### Step 1: Verify Docker
