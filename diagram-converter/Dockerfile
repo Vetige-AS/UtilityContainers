@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-# Install system dependencies for ImageMagick and Chromium
+# Install system dependencies for ImageMagick, Chromium, and SVG conversion
 RUN apk add --no-cache \
     imagemagick \
     chromium \
@@ -10,7 +10,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    wget
+    wget \
+    librsvg
 
 # Install Mermaid CLI globally
 RUN npm install -g @mermaid-js/mermaid-cli
