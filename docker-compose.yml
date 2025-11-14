@@ -52,6 +52,32 @@ services:
       - NODE_ENV=production
       - PORT=3001
 
+  pandoc-mcp:
+    image: ${PANDOC_MCP_IMAGE:-pandoc-mcp:latest}
+    build:
+      context: ./pandoc-mcp
+      dockerfile: Dockerfile
+    container_name: pandoc-mcp
+    ports:
+      - "${PANDOC_MCP_PORT:-3002}:3002"
+    volumes:
+      - ./workspace:/workspace
+      - pandoc-data:/data
+    env_file:
+      - .env
+    networks:
+      - dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+
 networks:
   dev-network:
     external: true
@@ -59,4 +85,6 @@ networks:
 
 volumes:
   mcp-cache:
+    driver: local
+  pandoc-data:
     driver: local
