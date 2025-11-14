@@ -1,6 +1,6 @@
 # Agent Definition Endpoints
 
-Both services expose `/agent` endpoints that return VS Code agent definition files. This allows developers to dynamically fetch and configure VS Code agents from running services.
+All services expose `/agent` endpoints that return VS Code agent definition files. This allows developers to dynamically fetch and configure VS Code agents from running services.
 
 ## Available Endpoints
 
@@ -14,6 +14,11 @@ Both services expose `/agent` endpoints that return VS Code agent definition fil
 - **URL**: `http://confluence-mcp:3001/agent` (from devcontainer)
 - **Returns**: Markdown-formatted VS Code agent definition for Confluence publishing
 
+### Pandoc MCP Agent
+- **URL**: `http://localhost:3002/agent` (from host)
+- **URL**: `http://pandoc-mcp:3002/agent` (from devcontainer)
+- **Returns**: Markdown-formatted VS Code agent definition for document conversion
+
 ## Usage
 
 ### Fetch Agent Definition
@@ -22,10 +27,12 @@ Both services expose `/agent` endpoints that return VS Code agent definition fil
 # From your host machine
 curl http://localhost:3000/agent > .vscode/diagram-agent.agent.md
 curl http://localhost:3001/agent > .vscode/confluence-agent.agent.md
+curl http://localhost:3002/agent > .vscode/pandoc-agent.agent.md
 
 # From within a devcontainer on dev-network
 curl http://diagram-converter:3000/agent > .vscode/diagram-agent.agent.md
 curl http://confluence-mcp:3001/agent > .vscode/confluence-agent.agent.md
+curl http://pandoc-mcp:3002/agent > .vscode/pandoc-agent.agent.md
 ```
 
 ### Programmatic Usage
@@ -40,10 +47,12 @@ async function fetchAgentDefinition(serviceUrl: string): Promise<string> {
 // Usage
 const diagramAgent = await fetchAgentDefinition('http://diagram-converter:3000');
 const confluenceAgent = await fetchAgentDefinition('http://confluence-mcp:3001');
+const pandocAgent = await fetchAgentDefinition('http://pandoc-mcp:3002');
 
 // Save to .vscode directory
 await fs.writeFile('.vscode/diagram-agent.agent.md', diagramAgent);
 await fs.writeFile('.vscode/confluence-agent.agent.md', confluenceAgent);
+await fs.writeFile('.vscode/pandoc-agent.agent.md', pandocAgent);
 ```
 
 **Python:**
@@ -57,12 +66,15 @@ def fetch_agent_definition(service_url: str) -> str:
 # Usage
 diagram_agent = fetch_agent_definition('http://diagram-converter:3000')
 confluence_agent = fetch_agent_definition('http://confluence-mcp:3001')
+pandoc_agent = fetch_agent_definition('http://pandoc-mcp:3002')
 
 # Save to .vscode directory
 with open('.vscode/diagram-agent.agent.md', 'w') as f:
     f.write(diagram_agent)
 with open('.vscode/confluence-agent.agent.md', 'w') as f:
     f.write(confluence_agent)
+with open('.vscode/pandoc-agent.agent.md', 'w') as f:
+    f.write(pandoc_agent)
 ```
 
 **Shell Script:**
@@ -87,6 +99,13 @@ if curl -f http://localhost:3001/agent > "$VSCODE_DIR/confluence-agent.agent.md"
     echo "✅ Confluence MCP agent configured"
 else
     echo "❌ Failed to fetch confluence MCP agent (is service running?)"
+fi
+
+# Fetch pandoc MCP agent
+if curl -f http://localhost:3002/agent > "$VSCODE_DIR/pandoc-agent.agent.md" 2>/dev/null; then
+    echo "✅ Pandoc MCP agent configured"
+else
+    echo "❌ Failed to fetch pandoc MCP agent (is service running?)"
 fi
 
 echo "Done! Restart VS Code to load the agents."
