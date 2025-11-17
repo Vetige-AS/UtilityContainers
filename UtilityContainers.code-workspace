@@ -11,7 +11,11 @@
 		{
 			"path": "./diagram-converter",
 			"name": "Diagram Converter"
-		}
+		},
+		                          
+	 {"path": "./pandoc-mcp",
+	  "name": "Pandoc MCP"
+	 }
 	],
 	"settings": {
 		"workbench.colorCustomizations": {
