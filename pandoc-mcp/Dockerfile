@@ -34,6 +34,15 @@ RUN npm prune --production && npm cache clean --force
 # Create data directory for volume mount
 RUN mkdir -p /data /workspace
 
+# Create non-root user for security
+RUN groupadd -g 1001 nodejs && useradd -r -u 1001 -g nodejs nodejs
+
+# Set ownership of app files
+RUN chown -R nodejs:nodejs /app /data /workspace
+
+# Switch to non-root user
+USER nodejs
+
 # Expose port (overridable via PORT env var, defaults to 3002)
 EXPOSE 3002
 
