@@ -5,10 +5,15 @@
   "scripts": {
     "test:mcp-tools": "node test-mcp-tools.js",
     "test:mcp-connection": "node test-mcp-connection.js",
+    "test:confluence": "node test-confluence-integration.js",
+    "test:confluence-live": "node test-confluence-live.js",
+    "test:mermaid-to-confluence": "node test-mermaid-to-confluence.js",
+    "test:mermaid-automatic": "node test-mermaid-automatic.js",
     "test:all": "node test-mcp-tools.js && node test-mcp-connection.js"
   },
   "dependencies": {
     "eventsource": "^2.0.2",
+    "form-data": "^4.0.0",
     "node-fetch": "^2.7.0"
   }
 }

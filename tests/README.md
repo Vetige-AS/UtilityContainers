@@ -4,12 +4,36 @@ This directory contains test scripts to verify that the MCP servers are working 
 
 ## Setup
 
-Install dependencies:
+### 1. Install dependencies:
 
 ```bash
 cd tests
 npm install
 ```
+
+### 2. Configure environment variables
+
+Copy the example environment file and update with your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your Confluence credentials:
+
+```env
+CONFLUENCE_BASE_URL=https://your-domain.atlassian.net/wiki
+CONFLUENCE_USERNAME=your-email@company.com
+CONFLUENCE_API_TOKEN=your-api-token
+CONFLUENCE_SPACE_KEY=YOUR_SPACE
+```
+
+**Note:** The `.env` file is gitignored to prevent exposing secrets. Never commit credentials to the repository.
+
+**Getting your Confluence API token:**
+1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
+2. Click "Create API token"
+3. Copy the token and paste it in your `.env` file
 
 ## Test Scripts
 

@@ -72,6 +72,13 @@ export class MarkdownConverter {
     // Convert links
     html = html.replace(/<a href="(.*?)">(.*?)<\/a>/g, '<a href="$1">$2</a>');
     
+    // Convert images to Confluence attachment format
+    html = html.replace(/<img src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/g, (match, src, alt) => {
+      // Extract filename from src (handle both absolute and relative paths)
+      const filename = src.split('/').pop() || src;
+      return `<p style="text-align: center;"><ac:image ac:width="600"><ri:attachment ri:filename="${filename}" /></ac:image></p>`;
+    });
+    
     // Convert code blocks
     html = html.replace(/<pre><code class="language-(.*?)">([\s\S]*?)<\/code><\/pre>/g, 
       '<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">$1</ac:parameter><ac:plain-text-body><![CDATA[$2]]></ac:plain-text-body></ac:structured-macro>');

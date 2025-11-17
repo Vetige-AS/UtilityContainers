@@ -6,9 +6,12 @@ import { loadConfig } from './utils/config';
 import { getDefaultSpaceKey } from './utils/config';
 import { ConfluenceClient } from './services/confluence-client';
 import { MarkdownConverter } from './services/markdown-converter';
+import { DiagramProcessor } from './services/diagram-processor';
 import { MarkdownPageCache } from './utils/cache';
 import { ProjectConfigManager } from './utils/project-config';
 import crypto from 'crypto';
+import axios from 'axios';
+import FormData from 'form-data';
 
 // Security configuration
 const MCP_API_KEY = process.env.MCP_API_KEY;
@@ -232,13 +235,51 @@ const getServer = () => {
 
       const client = new ConfluenceClient();
       const converter = new MarkdownConverter();
+      const diagramProcessor = new DiagramProcessor();
       const cache = new MarkdownPageCache();
 
-      // Convert markdown to Confluence format
-      const confluenceContent = await converter.convertToConfluence(markdownContent);
+      // Process Mermaid diagrams first (extract and convert to PNG)
+      const processed = await diagramProcessor.processMarkdown(markdownContent, markdownPath);
+      
+      console.log(`Processed ${processed.diagrams.length} diagram(s) from Markdown`);
+
+      // Convert markdown to Confluence format (now with image references instead of Mermaid)
+      const confluenceContent = await converter.convertToConfluence(processed.markdown);
 
       // Create the page (with parent if specified)
       const page = await client.createPage(finalSpaceKey, title, confluenceContent, finalParentPageId);
+
+      // Upload diagram PNGs as attachments to the page
+      if (processed.diagrams.length > 0) {
+        console.log(`Uploading ${processed.diagrams.length} diagram attachment(s)...`);
+        const config = loadConfig as any;
+        const baseUrl = process.env.CONFLUENCE_BASE_URL || '';
+        const username = process.env.CONFLUENCE_USERNAME || '';
+        const apiToken = process.env.CONFLUENCE_API_TOKEN || '';
+
+        for (const diagram of processed.diagrams) {
+          try {
+            const formData = new FormData();
+            formData.append('file', diagram.buffer, {
+              filename: diagram.filename,
+              contentType: 'image/png'
+            });
+
+            const attachmentUrl = `${baseUrl}/rest/api/content/${page.id}/child/attachment`;
+            await axios.post(attachmentUrl, formData, {
+              headers: {
+                'Authorization': 'Basic ' + Buffer.from(`${username}:${apiToken}`).toString('base64'),
+                'X-Atlassian-Token': 'no-check',
+                ...formData.getHeaders()
+              }
+            });
+
+            console.log(`✅ Uploaded attachment: ${diagram.filename}`);
+          } catch (error: any) {
+            console.error(`❌ Failed to upload ${diagram.filename}:`, error.message);
+          }
+        }
+      }
 
       // Cache the mapping if markdownPath is provided
       if (markdownPath) {
@@ -301,13 +342,50 @@ const getServer = () => {
 
       const client = new ConfluenceClient();
       const converter = new MarkdownConverter();
+      const diagramProcessor = new DiagramProcessor();
       const cache = new MarkdownPageCache();
 
-      // Convert markdown to Confluence format
-      const confluenceContent = await converter.convertToConfluence(markdownContent);
+      // Process Mermaid diagrams first (extract and convert to PNG)
+      const processed = await diagramProcessor.processMarkdown(markdownContent, markdownPath);
+      
+      console.log(`Processed ${processed.diagrams.length} diagram(s) from Markdown`);
+
+      // Convert markdown to Confluence format (now with image references instead of Mermaid)
+      const confluenceContent = await converter.convertToConfluence(processed.markdown);
 
       // Update the page (with parent if specified)
       const page = await client.updatePage(pageId, title, confluenceContent, version, finalParentPageId);
+
+      // Upload diagram PNGs as attachments to the page
+      if (processed.diagrams.length > 0) {
+        console.log(`Uploading ${processed.diagrams.length} diagram attachment(s)...`);
+        const baseUrl = process.env.CONFLUENCE_BASE_URL || '';
+        const username = process.env.CONFLUENCE_USERNAME || '';
+        const apiToken = process.env.CONFLUENCE_API_TOKEN || '';
+
+        for (const diagram of processed.diagrams) {
+          try {
+            const formData = new FormData();
+            formData.append('file', diagram.buffer, {
+              filename: diagram.filename,
+              contentType: 'image/png'
+            });
+
+            const attachmentUrl = `${baseUrl}/rest/api/content/${page.id}/child/attachment`;
+            await axios.post(attachmentUrl, formData, {
+              headers: {
+                'Authorization': 'Basic ' + Buffer.from(`${username}:${apiToken}`).toString('base64'),
+                'X-Atlassian-Token': 'no-check',
+                ...formData.getHeaders()
+              }
+            });
+
+            console.log(`✅ Uploaded attachment: ${diagram.filename}`);
+          } catch (error: any) {
+            console.error(`❌ Failed to upload ${diagram.filename}:`, error.message);
+          }
+        }
+      }
 
       // Update cache mapping if markdownPath is provided
       if (markdownPath) {
