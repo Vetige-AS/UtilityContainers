@@ -1,7 +1,7 @@
 FROM node:20-alpine
-
-# Install system dependencies for ImageMagick, Chromium, and SVG conversion
-RUN apk add --no-cache \
+# Ensure base packages are up-to-date and install system dependencies for ImageMagick, Chromium, and SVG conversion
+RUN apk upgrade --no-cache && \
+  apk add --no-cache \
     imagemagick \
     chromium \
     nss \
@@ -18,7 +18,7 @@ RUN npm install -g @mermaid-js/mermaid-cli
 
 # Configure Puppeteer to use installed Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create app directory
 WORKDIR /app
@@ -26,8 +26,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --omit=dev
+# Install dependencies (use npm ci when a lockfile is present for reproducible installs)
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi && \
+  # attempt to automatically fix production vulnerabilities; log errors except for "no vulnerabilities" or "nothing to fix"
+  (npm audit fix --production 2>&1 || true) | tee /tmp/npm-audit-fix.log && \
+  if grep -q -E "found 0 vulnerabilities|No vulnerabilities found|nothing to fix" /tmp/npm-audit-fix.log; then \
+    echo "No vulnerabilities found or nothing to fix."; \
+  else \
+    echo "npm audit fix encountered an error:"; \
+    cat /tmp/npm-audit-fix.log; \
+    exit 1; \
+  fi
 
 # Copy application code
 COPY server.js ./

@@ -1,11 +1,12 @@
-# Docker Diagram Services for Confluence Publishing
+# Docker Utility Services
 
-A complete containerized solution for converting Markdown diagrams (SVG and Mermaid) to PNG and publishing to Confluence.
+A complete containerized solution for document conversion, diagram processing, and Confluence publishing.
 
 ## 📋 What This Provides
 
 - **Diagram Converter Service**: HTTP API for converting SVG and Mermaid diagrams to PNG (Node.js 20)
 - **Confluence MCP Server**: Model Context Protocol server for AI-powered Confluence publishing (Node.js 20)
+- **Pandoc MCP Server**: Model Context Protocol server for document format conversion (Node.js 20 + Pandoc)
 - **Generic Mode**: Use with multiple Confluence instances without hardcoded credentials
 - **Docker Network**: Shared `dev-network` for cross-project container communication
 - **Multi-Project Support**: Run multiple instances with unique container names
@@ -42,7 +43,7 @@ chmod +x scripts/*.sh
 ## 📁 Project Structure
 
 ```
-docker-diagram-services/
+UtilityContainers/
 ├── README.md                          # This file
 ├── setup.sh                           # Automated setup script
 ├── docker-compose.yml                 # Docker Compose configuration
@@ -54,8 +55,14 @@ docker-diagram-services/
 │   └── server.js
 │
 ├── confluence-mcp/                    # Confluence MCP server
-│   ├── Dockerfile.template
-│   └── .env.example
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
+│
+├── pandoc-mcp/                        # Pandoc MCP server
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
 │
 ├── scripts/                           # Helper utilities
 │   ├── test-services.sh              # Test all services
@@ -320,7 +327,12 @@ docker stats
 # Check diagram converter
 curl http://localhost:3000/health
 
-# Check Confluence MCP (if available)
+# Check Confluence MCP
+curl http://localhost:3001/health
+
+# Check Pandoc MCP
+curl http://localhost:3002/health
+```
 curl http://localhost:3001/health
 ```
 
@@ -420,6 +432,7 @@ Your workspace is accessible from Windows at:
 Services are accessible at:
 - http://localhost:3000 (Diagram Converter)
 - http://localhost:3001 (Confluence MCP)
+- http://localhost:3002 (Pandoc MCP)
 
 ## 🤝 Contributing
 
