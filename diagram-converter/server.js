@@ -24,9 +24,41 @@ app.use((req, res, next) => {
 
 async function convertSvgToPng(svgPath, pngPath, density = 300) {
   try {
-    await execAsync(
-      `convert -density ${density} -background white -alpha remove "${svgPath}" "${pngPath}"`
-    );
+    // Validate density parameter to prevent command injection
+    const sanitizedDensity = parseInt(density, 10);
+    if (isNaN(sanitizedDensity) || sanitizedDensity < 1 || sanitizedDensity > 1200) {
+      throw new Error('Invalid density value. Must be a number between 1 and 1200.');
+    }
+    
+    // Use spawn instead of exec for better security
+    const { spawn } = await import('child_process');
+    await new Promise((resolve, reject) => {
+      const process = spawn('convert', [
+        '-density', sanitizedDensity.toString(),
+        '-background', 'white',
+        '-alpha', 'remove',
+        svgPath,
+        pngPath
+      ]);
+      
+      let stderr = '';
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`ImageMagick convert failed: ${stderr}`));
+        } else {
+          resolve();
+        }
+      });
+      
+      process.on('error', (err) => {
+        reject(err);
+      });
+    });
+    
     return pngPath;
   } catch (error) {
     console.error('SVG conversion error:', error);
@@ -39,9 +71,34 @@ async function convertMermaidToPng(mermaidContent, outputPath) {
   
   try {
     await fs.writeFile(inputPath, mermaidContent, 'utf-8');
-    await execAsync(
-      `mmdc -i "${inputPath}" -o "${outputPath}" -b transparent`
-    );
+    
+    // Use spawn instead of exec for better security
+    const { spawn } = await import('child_process');
+    await new Promise((resolve, reject) => {
+      const process = spawn('mmdc', [
+        '-i', inputPath,
+        '-o', outputPath,
+        '-b', 'transparent'
+      ]);
+      
+      let stderr = '';
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`Mermaid CLI failed: ${stderr}`));
+        } else {
+          resolve();
+        }
+      });
+      
+      process.on('error', (err) => {
+        reject(err);
+      });
+    });
+    
     return outputPath;
   } catch (error) {
     console.error('Mermaid conversion error:', error);
