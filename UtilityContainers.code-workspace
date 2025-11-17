@@ -1,7 +1,16 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": ".",
+			"name": "Utility Containers root"
+		}, 
+		{
+			"path": "./confluence-mcp",
+			"name": "Confluence MCP"
+		},
+		{
+			"path": "./diagram-converter",
+			"name": "Diagram Converter"
 		}
 	],
 	"settings": {
