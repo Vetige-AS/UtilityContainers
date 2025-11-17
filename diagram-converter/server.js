@@ -108,6 +108,48 @@ async function convertMermaidToPng(mermaidContent, outputPath) {
   }
 }
 
+async function convertMermaidToSvg(mermaidContent, outputPath) {
+  const inputPath = `/tmp/diagram-${Date.now()}-${Math.random().toString(36).substring(7)}.mmd`;
+  
+  try {
+    await fs.writeFile(inputPath, mermaidContent, 'utf-8');
+    
+    // Use spawn instead of exec for better security
+    const { spawn } = await import('child_process');
+    await new Promise((resolve, reject) => {
+      const process = spawn('mmdc', [
+        '-i', inputPath,
+        '-o', outputPath,
+        '-b', 'transparent'
+      ]);
+      
+      let stderr = '';
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`Mermaid CLI failed: ${stderr}`));
+        } else {
+          resolve();
+        }
+      });
+      
+      process.on('error', (err) => {
+        reject(err);
+      });
+    });
+    
+    return outputPath;
+  } catch (error) {
+    console.error('Mermaid to SVG conversion error:', error);
+    throw new Error(`Failed to convert Mermaid to SVG: ${error.message}`);
+  } finally {
+    await fs.unlink(inputPath).catch(() => {});
+  }
+}
+
 // ============================================================================
 // ROUTES
 // ============================================================================
@@ -121,6 +163,7 @@ app.get('/health', (req, res) => {
     endpoints: {
       'POST /convert/svg2png': 'Convert SVG file to PNG',
       'POST /convert/mermaid2png': 'Convert Mermaid code to PNG',
+      'POST /convert/mermaid2svg': 'Convert Mermaid code to SVG',
       'POST /convert/mermaid-file': 'Convert Mermaid file to PNG',
       'GET /agent': 'Get VS Code agent definition'
     },
@@ -315,6 +358,32 @@ app.post('/convert/mermaid2png', async (req, res) => {
   }
 });
 
+// Convert Mermaid code to SVG
+app.post('/convert/mermaid2svg', async (req, res) => {
+  const mermaidCode = req.body;
+
+  if (!mermaidCode || typeof mermaidCode !== 'string') {
+    return res.status(400).json({ error: 'No Mermaid code provided' });
+  }
+
+  const outputPath = `/tmp/diagram-${Date.now()}.svg`;
+
+  try {
+    await convertMermaidToSvg(mermaidCode, outputPath);
+    const svgBuffer = await fs.readFile(outputPath);
+
+    // Cleanup
+    await fs.unlink(outputPath).catch(() => {});
+
+    res.contentType('image/svg+xml');
+    res.send(svgBuffer);
+  } catch (error) {
+    await fs.unlink(outputPath).catch(() => {});
+    console.error('Mermaid to SVG conversion error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Convert Mermaid file to PNG
 app.post('/convert/mermaid-file', upload.single('file'), async (req, res) => {
   if (!req.file) {
@@ -350,11 +419,12 @@ app.get('/', (req, res) => {
   res.json({
     name: 'Diagram Converter Service',
     version: '1.0.0',
-    description: 'HTTP API for converting SVG and Mermaid diagrams to PNG',
+    description: 'HTTP API for converting SVG and Mermaid diagrams to PNG/SVG',
     endpoints: {
       'GET /health': 'Health check',
       'POST /convert/svg2png': 'Convert SVG file to PNG (multipart/form-data)',
       'POST /convert/mermaid2png': 'Convert Mermaid code to PNG (text/plain)',
+      'POST /convert/mermaid2svg': 'Convert Mermaid code to SVG (text/plain)',
       'POST /convert/mermaid-file': 'Convert Mermaid file to PNG (multipart/form-data)'
     }
   });
