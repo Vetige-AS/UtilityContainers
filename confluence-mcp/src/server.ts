@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { z } from 'zod';
 import { loadConfig } from './utils/config';
+import { getDefaultSpaceKey } from './utils/config';
 import { ConfluenceClient } from './services/confluence-client';
 import { MarkdownConverter } from './services/markdown-converter';
 import { MarkdownPageCache } from './utils/cache';
@@ -138,11 +139,34 @@ const getServer = () => {
   });
 
   server.tool('confluence_list_pages', 'List all pages in a Confluence space', {
-    spaceKey: z.string().describe('The key of the Confluence space to list pages from')
+    spaceKey: z.string().optional().describe('The key of the Confluence space to list pages from (uses default from config/env if not provided)')
   }, async ({ spaceKey }) => {
     try {
+      const projectConfig = new ProjectConfigManager();
+      const config = projectConfig.getConfig();
+      
+      // Use project config default if not provided, then fall back to env default
+      const finalSpaceKey = spaceKey || config?.spaceKey || getDefaultSpaceKey();
+      
+      if (!finalSpaceKey) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                error: 'No space key provided. Either:\n' +
+                       '1. Pass spaceKey parameter, or\n' +
+                       '2. Set up project config with confluence_setup_project, or\n' +
+                       '3. Set CONFLUENCE_SPACE_KEY in .env file'
+              }, null, 2)
+            }
+          ],
+          isError: true
+        };
+      }
+
       const client = new ConfluenceClient();
-      const pages = await client.listPages(spaceKey);
+      const pages = await client.listPages(finalSpaceKey);
 
       return {
         content: [
@@ -185,8 +209,8 @@ const getServer = () => {
       const projectConfig = new ProjectConfigManager();
       const config = projectConfig.getConfig();
 
-      // Use project config defaults if not provided
-      const finalSpaceKey = spaceKey || config?.spaceKey;
+      // Use project config defaults if not provided, then fall back to env default
+      const finalSpaceKey = spaceKey || config?.spaceKey || getDefaultSpaceKey();
       const finalParentPageId = parentPageId || config?.parentPageId;
 
       if (!finalSpaceKey) {
@@ -195,7 +219,10 @@ const getServer = () => {
             {
               type: 'text',
               text: JSON.stringify({
-                error: 'No space key provided. Either pass spaceKey parameter or set up project config with confluence_setup_project'
+                error: 'No space key provided. Either:\n' +
+                       '1. Pass spaceKey parameter, or\n' +
+                       '2. Set up project config with confluence_setup_project, or\n' +
+                       '3. Set CONFLUENCE_SPACE_KEY in .env file'
               }, null, 2)
             }
           ],
